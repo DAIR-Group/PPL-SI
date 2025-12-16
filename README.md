@@ -36,7 +36,7 @@ To compute valid p-values, we identify the truncation region $\mathcal{Z}$ where
 ### Prerequisites
 The package requires Python 3.8+ and the following libraries:
 - [`numpy`](https://numpy.org/doc/stable/)
-- [`mpmath`](https://mpmath.org/)** 
+- [`mpmath`](https://mpmath.org/) 
 - [`skglm`](https://contrib.scikit-learn.org/skglm/) 
 - [`scipy`](https://docs.scipy.org/doc/)
 - [`joblib`](https://joblib.readthedocs.io/)
