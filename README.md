@@ -18,7 +18,7 @@ PPL-SI corrects the selection bias in the Pretrained Lasso pipeline (and its par
 To compute valid p-values, we identify the truncation region $\mathcal{Z}$ where the feature selection event remains invariant. PPL-SI employs an efficient **divide-and-conquer algorithm** to decompose the problem into sub-intervals, solving for linear inequalities in parallel.
 
 ![Divide and Conquer Strategy](figures/divide_conquer.png)
-*Figure 2: Schematic illustration of identifying the truncation region $\mathcal{Z}$ using a divide-and-conquer strategy.*
+*Figure 2: Schematic illustration of identifying the truncation region using a divide-and-conquer strategy.*
 
 ---
 
@@ -35,19 +35,18 @@ To compute valid p-values, we identify the truncation region $\mathcal{Z}$ where
 
 ### Prerequisites
 The package requires Python 3.8+ and the following libraries:
-- **[`numpy`](https://numpy.org/doc/stable/)**
-- **[`mpmath`](https://mpmath.org/)** 
-- **[`skglm`](https://contrib.scikit-learn.org/skglm/)** 
-- **[`scipy`](https://docs.scipy.org/doc/)** 
-- **[`joblib`](https://joblib.readthedocs.io/)** 
+- [`numpy`](https://numpy.org/doc/stable/)
+- [`mpmath`](https://mpmath.org/)** 
+- [`skglm`](https://contrib.scikit-learn.org/skglm/) 
+- [`scipy`](https://docs.scipy.org/doc/)
+- [`joblib`](https://joblib.readthedocs.io/)
 
 
 ### Install from source
 You can install the package in editable mode from the source code:
 
 ```bash
-git clone [https://github.com/DAIR-Group/PPL-SI.git](https://github.com/DAIR-Group/PPL-SI.git)
-cd PPL-SI
+git clone https://github.com/DAIR-Group/PPL-SI.git
 pip install -e .
 ```
 ---
@@ -56,6 +55,8 @@ pip install -e .
 ## 📂 Package Structure
 The repository is organized as follows:
 
+
+```
 PPL-SI/
 ├── ppl_si/                     # Source code package
 │   ├── __init__.py             # Initialization
@@ -73,4 +74,4 @@ PPL-SI/
 │
 ├── figures/                    # Images for README/Documentation
 └── README.md
-
+```
