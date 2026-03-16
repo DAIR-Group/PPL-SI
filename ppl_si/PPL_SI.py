@@ -513,6 +513,7 @@ def PPL_SI_CV_randj(X_list, Y_list, Lambda, Lambda_tilde, Sigma_list, n_folds=5,
     intervals_Z1 = divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K_obs, rho_obs, z_min, z_max, num_segments)
 
     intervals_Z2 = compute_Z2(X, a.ravel(), b.ravel(), Lambda, lambda_sh_obs, fold_splits_all, z_min, z_max, num_segments)
+
     intervals_Z3 = compute_Z3(X, XK, a.ravel(), b.ravel(), lambda_sh_obs, Lambda_tilde, Phi_obs, fold_splits_K, z_min, z_max, num_segments)
 
     intervals_CV = intersect_interval_lists(
