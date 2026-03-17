@@ -145,14 +145,13 @@ def compute_sh_path(X_train, a_train, b_train, X_val, a_val, b_val, w_tilde, z_s
             g = np.zeros(p)
             h = np.zeros(p)
             Ou = beta_sh_info["active_set"]
-            if len(Ou) == 0:
-                return g, h
-            XOu = beta_sh_info["X_active"]
-            SOu = beta_sh_info["sign_active"].ravel()
-            w_tilde_Ou = w_tilde[Ou]
-            inv = pinv(XOu.T @ XOu)
-            g[Ou] = inv @ (XOu.T @ a_train - w_tilde_Ou * SOu)
-            h[Ou] = inv @ (XOu.T @ b_train)
+            if len(Ou) > 0:
+                XOu = beta_sh_info["X_active"]
+                SOu = beta_sh_info["sign_active"].ravel()
+                w_tilde_Ou = w_tilde[Ou]
+                inv = pinv(XOu.T @ XOu)
+                g[Ou] = inv @ (XOu.T @ a_train - w_tilde_Ou * SOu)
+                h[Ou] = inv @ (XOu.T @ b_train)
             
             A, B, C = calculate_ABC(g, h, a_val, b_val, X_val)
             path.append((z_lo, z_hi, A, B, C))
@@ -183,16 +182,15 @@ def compute_sh_obs_path(X, a, b, w_tilde, z_start, z_end):
             g = np.zeros(p)
             h = np.zeros(p)
             Ou = beta_sh_info["active_set"]
-            if len(Ou) == 0:
-                return g, h
-            XOu = beta_sh_info["X_active"]
-            SOu = beta_sh_info["sign_active"].ravel()
-            w_tilde_Ou = w_tilde[Ou]
-            inv = pinv(XOu.T @ XOu)
-            g[Ou] = inv @ (XOu.T @ a - w_tilde_Ou * SOu)
-            h[Ou] = inv @ (XOu.T @ b)
+            if len(Ou) > 0:
+                XOu = beta_sh_info["X_active"]
+                SOu = beta_sh_info["sign_active"].ravel()
+                w_tilde_Ou = w_tilde[Ou]
+                inv = pinv(XOu.T @ XOu)
+                g[Ou] = inv @ (XOu.T @ a - w_tilde_Ou * SOu)
+                h[Ou] = inv @ (XOu.T @ b)
 
-            path.append((z_lo, z_hi, g, h, beta_sh_info["active_set"]))
+            path.append((z_lo, z_hi, g, h, Ou))
 
         z_lo = z_hi
         z = right + 1e-5
