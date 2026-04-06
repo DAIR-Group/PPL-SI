@@ -260,29 +260,6 @@ def compute_Zv_dtf(delta_info, phi_u, iota_u, lambda_tilde, nK):
     return compute_interval_from_inequalities(nu, kappa)
 
 
-# def compute_Zt_dtf(betaK_info, xi_uv, zeta_uv):
-#     omega0 = chi0 = omega1 = chi1 = np.empty(0)
-#     M, Mc, SM = betaK_info["active_set"], betaK_info["inactive_set"], betaK_info["sign_active"]
-
-#     if len(M) > 0:
-#         Dt_xi = xi_uv[M]
-#         Dt_zeta = zeta_uv[M]
-
-#         omega0 = (-SM * Dt_xi).ravel()
-#         chi0 = (SM * Dt_zeta).ravel()
-
-#     if len(Mc) > 0:
-#         Dtc_xi = xi_uv[Mc].ravel()
-#         Dtc_zeta = zeta_uv[Mc].ravel()
-
-#         omega1 = np.concatenate([Dtc_xi, -Dtc_xi])
-#         chi1 = np.concatenate([-Dtc_zeta, Dtc_zeta])
-
-#     omega = np.concatenate((omega0, omega1))
-#     chi = np.concatenate((chi0, chi1))
-
-#     return compute_interval_from_inequalities(omega, chi, "Zt")
-
 
 def calculate_phi_iota_xi_zeta_dtf(theta_info, delta_info, XK, a, b, c, d, P, q_tilde, lambda_tilde, n, nK, K):
     p = XK.shape[1]

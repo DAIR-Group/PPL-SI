@@ -150,13 +150,13 @@ def calculate_TN_p_value(intervals, etaj, etajTY, Sigma, tn_mu=0.0):
         return None
 
 
-def construct_test_statistic(j, XK_tilde_Mstar, Y, Mstar, n, nK):
-    idx = Mstar.index(j)
-    ej = np.zeros((len(Mstar), 1))
+def construct_test_statistic(j, XK_M, Y, M, n, nK):
+    idx = M.index(j)
+    ej = np.zeros((len(M), 1))
     ej[idx, 0] = 1.0
 
-    inv = pinv(XK_tilde_Mstar.T @ XK_tilde_Mstar)
-    etaj_tail = XK_tilde_Mstar @ inv @ ej
+    inv = pinv(XK_M.T @ XK_M)
+    etaj_tail = XK_M @ inv @ ej
 
     etaj = np.zeros((n, 1))
     etaj[-nK:, 0] = etaj_tail.ravel()

@@ -1,6 +1,5 @@
 import numpy as np
 
-
 def generate_synthetic_data(p, num_sh, num_inv, K, n_list, true_beta_sh=0.3, Gamma=0.5, itc=0.5, rho_=None):
     beta_sh = np.zeros(p)
     beta_sh[:num_sh] = true_beta_sh  

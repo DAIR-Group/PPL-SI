@@ -63,7 +63,7 @@ def identify_intervals_in_segment(X, XK, a, b, Mobs, n, nK, Q, w_tilde, lambda_K
 
 
 
-def divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K, rho, z_min, z_max, num_segments=1):
+def divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K, rho, z_min, z_max, num_segments=30):
     seg_w = (z_max - z_min) / num_segments
     segments = [(z_min + i * seg_w, z_min + (i + 1) * seg_w) for i in range(num_segments)]
     n_jobs = min(num_segments, os.cpu_count())
@@ -86,7 +86,7 @@ def divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K, rho, z_min, 
     return intervals
 
 
-def PPL_SI(X_list, Y_list, lambda_sh, lambda_K, rho, Sigma_list, z_min=-20, z_max=20, num_segments=1):
+def PPL_SI(X_list, Y_list, lambda_sh, lambda_K, rho, Sigma_list, threshold=20, num_segments=30):
     X_ = np.concatenate(X_list)
     Y = np.concatenate(Y_list)
     XK_ = X_list[-1]
@@ -111,12 +111,14 @@ def PPL_SI(X_list, Y_list, lambda_sh, lambda_K, rho, Sigma_list, z_min=-20, z_ma
     Sigma = block_diag(*Sigma_list)
 
 
-    
     p_sel_list = []
     
     for j in Mobs:
         etaj, etajTY = construct_test_statistic(j, XK_M, Y, Mobs, n, nK)
         a, b = calculate_a_b(etaj, Y, Sigma, n)
+        stdev = np.sqrt(etaj.ravel() @ (Sigma @ etaj.ravel()))
+        z_min = -threshold * stdev
+        z_max = threshold * stdev
         intervals = divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K, rho, z_min, z_max, num_segments)
         p_value = calculate_TN_p_value(intervals, etaj, etajTY, Sigma, 0)
         p_sel_list.append((j, p_value))
@@ -124,7 +126,7 @@ def PPL_SI(X_list, Y_list, lambda_sh, lambda_K, rho, Sigma_list, z_min=-20, z_ma
     return p_sel_list
 
 
-def PPL_SI_randj(X_list, Y_list, lambda_sh, lambda_K, rho, Sigma_list, z_min=-20, z_max=20, num_segments=1):
+def PPL_SI_randj(X_list, Y_list, lambda_sh, lambda_K, rho, Sigma_list, threshold=20, num_segments=30):
     X_ = np.concatenate(X_list)
     Y = np.concatenate(Y_list)
     XK_ = X_list[-1]
@@ -152,11 +154,13 @@ def PPL_SI_randj(X_list, Y_list, lambda_sh, lambda_K, rho, Sigma_list, z_min=-20
     j = np.random.choice(Mobs)
     etaj, etajTY = construct_test_statistic(j, XK_M, Y, Mobs, n, nK)
     a, b = calculate_a_b(etaj, Y, Sigma, n)
+    stdev = np.sqrt(etaj.ravel() @ (Sigma @ etaj.ravel()))
+    z_min = -threshold * stdev
+    z_max = threshold * stdev
     intervals = divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K, rho, z_min, z_max, num_segments)
     p_value = calculate_TN_p_value(intervals, etaj, etajTY, Sigma, 0)
 
     return j, p_value
-
 
 
 # Pretrained Lasso Only Parameters
@@ -184,8 +188,8 @@ def identify_intervals_in_segment_param_only(XK, beta_sh, a, b, Mobs, nK, a_tild
             right = min(rv, rt)
             left = max(lv, lt)
             if right < left or right < z: 
-                print ('Error')
-                return []
+                z += 1e-5
+                continue
 
             Mt = betaK_info["active_set"]
             if np.array_equal(Mobs, Mt):
@@ -197,14 +201,11 @@ def identify_intervals_in_segment_param_only(XK, beta_sh, a, b, Mobs, nK, a_tild
     return intervals
 
 
-
-def divide_and_conquer_param_only(beta_sh, XK, a, b, Mobs, nK, a_tilde, rho, z_min, z_max, num_segments=24):
-    seg_w = (z_max - z_min) / num_segments
-    segments = [(z_min + i * seg_w, z_min + (i + 1) * seg_w) for i in range(num_segments)]
-
+def divide_and_conquer_param_only(beta_sh, XK, a, b, Mobs, nK, a_tilde, rho, z_min, z_max, num_segments=30):
     n_jobs = min(num_segments, os.cpu_count())
-    
-    
+    seg_w = (z_max - z_min) / n_jobs
+    segments = [(z_min + i * seg_w, z_min + (i + 1) * seg_w) for i in range(n_jobs)]
+
     results = Parallel(n_jobs=n_jobs, backend="loky")(
         (delayed(identify_intervals_in_segment_param_only)(XK, beta_sh, a, b, Mobs, nK, a_tilde, rho, seg[0], seg[1]) for seg in segments)
     )
@@ -219,7 +220,7 @@ def divide_and_conquer_param_only(beta_sh, XK, a, b, Mobs, nK, a_tilde, rho, z_m
     return intervals
 
 
-def PPL_SI_param_only(beta_sh, XK, YK, lambda_K, rho, Sigma_K, z_min=-20, z_max=20):
+def PPL_SI_param_only(beta_sh, XK, YK, lambda_K, rho, Sigma_K, threshold=20, num_segments=30):
 
     nK = XK.shape[0]
 
@@ -243,14 +244,17 @@ def PPL_SI_param_only(beta_sh, XK, YK, lambda_K, rho, Sigma_K, z_min=-20, z_max=
     for j in Mobs:
         etaj, etajTY = construct_test_statistic_pretrained(j, XK_M, YK, Mobs)
         a, b = calculate_a_b(etaj, YK, Sigma, nK) 
-        intervals = divide_and_conquer_param_only(beta_sh, XK, a, b, Mobs, nK, a_tilde, rho, z_min, z_max)
+        stdev = np.sqrt(etaj.ravel() @ (Sigma @ etaj.ravel()))
+        z_min = -threshold * stdev
+        z_max = threshold * stdev
+        intervals = divide_and_conquer_param_only(beta_sh, XK, a, b, Mobs, nK, a_tilde, rho, z_min, z_max, num_segments)
         p_value = calculate_TN_p_value(intervals, etaj, etajTY, Sigma, 0)
         p_sel_list.append((j, p_value))
     
     return p_sel_list
 
 
-def PPL_SI_param_only_randj(beta_sh, XK, YK, lambda_K, rho, Sigma_K, z_min=-20, z_max=20, num_segments=1):
+def PPL_SI_param_only_randj(beta_sh, XK, YK, lambda_K, rho, Sigma_K, threshold=20, num_segments=1):
 
     nK = XK.shape[0]
 
@@ -263,7 +267,7 @@ def PPL_SI_param_only_randj(beta_sh, XK, YK, lambda_K, rho, Sigma_K, z_min=-20, 
     Mobs = [i for i in range(len(betaK_hat)) if betaK_hat[i] != 0.0]
     
     if len(Mobs) == 0:
-        return None
+        return None, None
 
     XK_M = XK[:, Mobs]
     Sigma = Sigma_K
@@ -271,6 +275,9 @@ def PPL_SI_param_only_randj(beta_sh, XK, YK, lambda_K, rho, Sigma_K, z_min=-20, 
     j = np.random.choice(Mobs)
     etaj, etajTY = construct_test_statistic_pretrained(j, XK_M, YK, Mobs)
     a, b = calculate_a_b(etaj, YK, Sigma, nK) 
+    stdev = np.sqrt(etaj.ravel() @ (Sigma @ etaj.ravel()))
+    z_min = -threshold * stdev
+    z_max = threshold * stdev
     intervals = divide_and_conquer_param_only(beta_sh, XK, a, b, Mobs, nK, a_tilde, rho, z_min, z_max, num_segments)
     p_value = calculate_TN_p_value(intervals, etaj, etajTY, Sigma, 0)
 
@@ -303,10 +310,9 @@ def identify_intervals_in_segment_dtf(X_tilde, XK, a, b, c, d, Mobs, q_tilde, la
         
             right = min(ru, rv, rt)
             left = max(lu, lv, lt)
-            if right < left or right < z: 
-                print('Error')
-                # return ([], [])
-                return []
+            if right < left or right < z:
+                z += 1e-5 
+                continue
 
             Mt = betaK_info["active_set"]
             
@@ -337,7 +343,7 @@ def divide_and_conquer_dtf(X_tilde, XK, a, b, c, d, Mobs, q_tilde, lambda_tilde,
     return intervals
 
 
-def PPL_SI_DTF(XK, YK, beta_tilde_list, n_list, lambda_0, lambda_tilde, qk_weights, Sigma_K, z_min=-20, z_max=20, num_segments=1):
+def PPL_SI_DTF(XK, YK, beta_tilde_list, n_list, lambda_0, lambda_tilde, qk_weights, Sigma_K, threshold=20, num_segments=30):
     K = len(n_list)
     nK = XK.shape[0]
     p = XK.shape[1]
@@ -368,6 +374,9 @@ def PPL_SI_DTF(XK, YK, beta_tilde_list, n_list, lambda_0, lambda_tilde, qk_weigh
         etaj, etajTY = construct_test_statistic_pretrained(j, XK_M, YK, Mobs)
         a, b = calculate_a_b_pretrained(etaj, YK, Sigma, nK)
         c, d = calculate_c_d(a, b, beta_tilde_list, n_list, K, p)
+        stdev = np.sqrt(etaj.ravel() @ (Sigma @ etaj.ravel()))
+        z_min = -threshold * stdev
+        z_max = threshold * stdev
         intervals = divide_and_conquer_dtf(X_tilde, XK, a, b, c, d, Mobs, q_tilde, lambda_tilde, P, n, nK, K, z_min, z_max, num_segments)
         p_value = calculate_TN_p_value(intervals, etaj, etajTY, Sigma, 0)
         p_sel_list.append((j, p_value))
@@ -375,7 +384,7 @@ def PPL_SI_DTF(XK, YK, beta_tilde_list, n_list, lambda_0, lambda_tilde, qk_weigh
     return p_sel_list
 
 
-def PPL_SI_DTF_randj(XK, YK, beta_tilde_list, n_list, lambda_0, lambda_tilde, qk_weights, Sigma_K, z_min=-20, z_max=20, num_segments=1):
+def PPL_SI_DTF_randj(XK, YK, beta_tilde_list, n_list, lambda_0, lambda_tilde, qk_weights, Sigma_K, threshold=20, num_segments=30):
     K = len(n_list)
     nK = XK.shape[0]
     p = XK.shape[1]
@@ -395,7 +404,7 @@ def PPL_SI_DTF_randj(XK, YK, beta_tilde_list, n_list, lambda_0, lambda_tilde, qk
     Mobs = [i for i in range(p) if betaK_hat[i] != 0.0]
     
     if len(Mobs) == 0:
-        return None
+        return None, None
     
     XK_M = XK[:, Mobs]
     Sigma = Sigma_K
@@ -404,6 +413,9 @@ def PPL_SI_DTF_randj(XK, YK, beta_tilde_list, n_list, lambda_0, lambda_tilde, qk
     etaj, etajTY = construct_test_statistic_pretrained(j, XK_M, YK, Mobs)
     a, b = calculate_a_b_pretrained(etaj, YK, Sigma, nK)
     c, d = calculate_c_d(a, b, beta_tilde_list, n_list, K, p)
+    stdev = np.sqrt(etaj.ravel() @ (Sigma @ etaj.ravel()))
+    z_min = -threshold * stdev
+    z_max = threshold * stdev
     intervals = divide_and_conquer_dtf(X_tilde, XK, a, b, c, d, Mobs, q_tilde, lambda_tilde, P, n, nK, K, z_min, z_max, num_segments)
     p_value = calculate_TN_p_value(intervals, etaj, etajTY, Sigma, 0)
 
@@ -412,19 +424,7 @@ def PPL_SI_DTF_randj(XK, YK, beta_tilde_list, n_list, lambda_0, lambda_tilde, qk
 
 
 # Pretrained Lasso with CV
-def PPL_SI_CV(X_list, Y_list, Lambda, Lambda_tilde, Sigma_list, n_folds=5, z_min=-20, z_max=20, num_segments=1, seed=None):
-    '''
-    X_list: list of source datasets (each with shape (n_k, p))
-    Y_list: list of source labels (each with shape (n_k,))
-    Lambda: list of candidate lambda_sh values for cross-validation
-    Lambda_tilde: list of candidate (lambda_K, rho) values for cross-validation   
-    Sigma_list: list of covariance matrices for each dataset (each with shape (n_k, n_k))
-    n_folds: number of folds for cross-validation
-    z_min, z_max: range for z in the divide-and-conquer algorithm
-    num_segments: number of segments to divide the z range into for parallel processing
-    seed: random seed for reproducibility in fold splits and random selection
-    '''
-
+def PPL_SI_CV(X_list, Y_list, Lambda, Lambda_tilde, Sigma_list, n_folds=5, threshold=20, num_segments=30, seed=None):
     X_ = np.concatenate(X_list)
     Y = np.concatenate(Y_list)
     XK_ = X_list[-1]
@@ -459,24 +459,31 @@ def PPL_SI_CV(X_list, Y_list, Lambda, Lambda_tilde, Sigma_list, n_folds=5, z_min
     for j in Mobs:
         etaj, etajTY = construct_test_statistic(j, XK_M, Y, Mobs, n, nK)
         a, b = calculate_a_b(etaj, Y, Sigma, n)
+        stdev = np.sqrt(etaj.ravel() @ (Sigma @ etaj.ravel()))
+        z_min = -threshold * stdev
+        z_max = threshold * stdev
 
-        intervals_Z1 = divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K_obs, rho_obs, z_min, z_max, num_segments)
+        Z2 = compute_Z2(X, a.ravel(), b.ravel(), Lambda, lambda_sh_obs, fold_splits_all, z_min, z_max, num_segments)
+        min_ = Z2[0][0]
+        max_ = Z2[-1][1] 
 
-        intervals_Z2 = compute_Z2(X, a.ravel(), b.ravel(), Lambda, lambda_sh_obs, fold_splits_all, z_min, z_max, num_segments)
-        intervals_Z3 = compute_Z3(X, XK, a.ravel(), b.ravel(), lambda_sh_obs, Lambda_tilde, Phi_obs, fold_splits_K, z_min, z_max, num_segments)
+        Z3 = compute_Z3(X, XK, a.ravel(), b.ravel(), lambda_sh_obs, Lambda_tilde, Phi_obs, fold_splits_K, min_, max_, num_segments)
 
-        intervals_CV = intersect_interval_lists(
-            intersect_interval_lists(intervals_Z1, intervals_Z2),
-            intervals_Z3
-        )
+        interval_CV = intersect_interval_lists(Z2, Z3) 
+        min_ = interval_CV[0][0]
+        max_ = interval_CV[-1][1]
 
-        p_value = calculate_TN_p_value(intervals_CV, etaj, etajTY, Sigma, 0)
+        Z1 = divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K_obs, rho_obs, min_, max_, num_segments)
+
+        intervals = intersect_interval_lists(Z1, interval_CV)
+
+        p_value = calculate_TN_p_value(intervals, etaj, etajTY, Sigma, 0)
         p_sel_list.append((j, p_value))
 
     return p_sel_list
 
 
-def PPL_SI_CV_randj(X_list, Y_list, Lambda, Lambda_tilde, Sigma_list, n_folds=5, z_min=-20, z_max=20, num_segments=1, seed=None):
+def PPL_SI_CV_randj(X_list, Y_list, Lambda, Lambda_tilde, Sigma_list, n_folds=5, threshold=20, num_segments=30, seed=None):
     X_ = np.concatenate(X_list)
     Y = np.concatenate(Y_list)
     XK_ = X_list[-1]
@@ -502,25 +509,29 @@ def PPL_SI_CV_randj(X_list, Y_list, Lambda, Lambda_tilde, Sigma_list, n_folds=5,
     Mobs = [i for i in range(len(betaK_hat)) if betaK_hat[i] != 0.0]
 
     if len(Mobs) == 0:
-        return None
+        return None, None
 
     XK_M = XK[:, Mobs]
 
     j = np.random.choice(Mobs)
     etaj, etajTY = construct_test_statistic(j, XK_M, Y, Mobs, n, nK)
     a, b = calculate_a_b(etaj, Y, Sigma, n)
+    stdev = np.sqrt(etaj.ravel() @ (Sigma @ etaj.ravel()))
+    z_min = -threshold * stdev
+    z_max = threshold * stdev
 
-    intervals_Z1 = divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K_obs, rho_obs, z_min, z_max, num_segments)
+    Z2 = compute_Z2(X, a.ravel(), b.ravel(), Lambda, lambda_sh_obs, fold_splits_all, z_min, z_max, num_segments)
+    min_ = Z2[0][0]
+    max_ = Z2[-1][1]
 
-    intervals_Z2 = compute_Z2(X, a.ravel(), b.ravel(), Lambda, lambda_sh_obs, fold_splits_all, z_min, z_max, num_segments)
+    Z3 = compute_Z3(X, XK, a.ravel(), b.ravel(), lambda_sh_obs, Lambda_tilde, Phi_obs, fold_splits_K, min_, max_, num_segments)
 
-    intervals_Z3 = compute_Z3(X, XK, a.ravel(), b.ravel(), lambda_sh_obs, Lambda_tilde, Phi_obs, fold_splits_K, z_min, z_max, num_segments)
+    interval_CV = intersect_interval_lists(Z2, Z3)
+    min_ = interval_CV[0][0]
+    max_ = interval_CV[-1][1]
 
-    intervals_CV = intersect_interval_lists(
-        intersect_interval_lists(intervals_Z1, intervals_Z2),
-        intervals_Z3
-    )
-
-    p_value = calculate_TN_p_value(intervals_CV, etaj, etajTY, Sigma, 0)
+    Z1 = divide_and_conquer(X, XK, a, b, Mobs, n, nK, w_tilde, lambda_K_obs, rho_obs, min_, max_, num_segments)
+    intervals = intersect_interval_lists(Z1, interval_CV)
+    p_value = calculate_TN_p_value(intervals, etaj, etajTY, Sigma, 0)
 
     return j, p_value

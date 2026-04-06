@@ -5,8 +5,6 @@ from numpy.linalg import pinv
 from joblib import Parallel, delayed
 from skglm import WeightedLasso
 from collections import defaultdict
-
-
 from .sub_prob import compute_Zu, compute_Zv
 from .utils import construct_active_set, merge_intervals
 
@@ -20,7 +18,7 @@ def make_kfold_splits(n, M, seed=None):
         val_idx = folds[m]
         train_idx = np.concatenate([folds[k] for k in range(M) if k != m])
         splits.append((train_idx, val_idx))
-    return splits # Create K-fold splits for a dataset of size n into M folds, with an optional random seed for reproducibility.
+    return splits 
 
 
 def solve_quadratic_ineq(A, B, C, z_lo, z_hi):
@@ -79,22 +77,6 @@ def intersect_interval_lists(list1, list2):
     return result
 
 
-# def calculate_gh(beta_sh_info, a, b, w_tilde):
-#     p = len(w_tilde)
-#     g = np.zeros(p)
-#     h = np.zeros(p)
-#     Ou = beta_sh_info["active_set"]
-#     if len(Ou) == 0:
-#         return g, h
-#     XOu = beta_sh_info["X_active"]
-#     SOu = beta_sh_info["sign_active"].ravel()
-#     w_tilde_Ou = w_tilde[Ou]
-#     inv = pinv(XOu.T @ XOu)
-#     g[Ou] = inv @ (XOu.T @ a - w_tilde_Ou * SOu)
-#     h[Ou] = inv @ (XOu.T @ b)
-#     return g, h
-
-
 def calculate_ABC(g, h, a_val, b_val, X_val):
     residual_a = a_val - X_val @ g
     residual_b = b_val - X_val @ h
@@ -104,26 +86,6 @@ def calculate_ABC(g, h, a_val, b_val, X_val):
     return A, B, C
 
 
-# def compute_sh_path(X_train, a_train, b_train, w_tilde, z_start, z_end): 
-#     n_train = X_train.shape[0]
-#     path = []
-#     z = z_start
-#     z_lo = z_start 
-#     while z < z_end:
-#         Yz = a_train + b_train * z
-#         model = WeightedLasso(alpha=1.0 / n_train, fit_intercept=False, tol=1e-13,
-#                               weights=w_tilde)
-#         model.fit(X_train, Yz)
-#         beta_sh_info = construct_active_set(model.coef_, X_train)
-#         left, right = compute_Zu(beta_sh_info, a_train.reshape(-1, 1), b_train.reshape(-1, 1),
-#                                  w_tilde.reshape(-1, 1), n_train)
-#         g, h = calculate_gh(beta_sh_info, a_train, b_train, w_tilde)
-#         z_hi = min(right, z_end)
-#         if z_hi > z_lo:
-#             path.append((z_lo, z_hi, g, h, beta_sh_info["active_set"]))
-#         z_lo = z_hi
-#         z = right + 1e-5
-#     return path
 
 def compute_sh_path(X_train, a_train, b_train, X_val, a_val, b_val, w_tilde, z_start, z_end): 
     n_train = X_train.shape[0]
@@ -155,6 +117,10 @@ def compute_sh_path(X_train, a_train, b_train, X_val, a_val, b_val, w_tilde, z_s
             
             A, B, C = calculate_ABC(g, h, a_val, b_val, X_val)
             path.append((z_lo, z_hi, A, B, C))
+        
+        else: 
+            z += 1e-5
+            continue
 
         z_lo = z_hi
         z = right + 1e-5
@@ -192,41 +158,13 @@ def compute_sh_obs_path(X, a, b, w_tilde, z_start, z_end):
 
             path.append((z_lo, z_hi, g, h, Ou))
 
+        else:
+            z += 1e-5
+            continue
         z_lo = z_hi
         z = right + 1e-5
     return path
 
-
-# def compute_indiv_path(XK_train, a_K_eff, b_K_eff, a_tilde, z_start, z_end):
-#     nK_train = XK_train.shape[0]
-#     p = XK_train.shape[1]
-#     path = []
-#     z = z_start
-#     z_lo = z_start
-#     while z < z_end:
-#         rKz = a_K_eff + b_K_eff * z
-#         model = WeightedLasso(alpha=1.0 / nK_train, fit_intercept=False, tol=1e-13,
-#                               weights=a_tilde)
-#         model.fit(XK_train, rKz)
-#         beta_indiv_info = construct_active_set(model.coef_, XK_train)
-#         left, right = compute_Zv(beta_indiv_info, b_K_eff.reshape(-1, 1), a_K_eff.reshape(-1, 1),
-#                                  nK_train, a_tilde.reshape(-1, 1))
-#         g_indiv = np.zeros(p)
-#         h_indiv = np.zeros(p)
-#         L = beta_indiv_info["active_set"]
-#         if len(L) > 0:
-#             XK_L = beta_indiv_info["X_active"]
-#             SL = beta_indiv_info["sign_active"].ravel()
-#             a_tilde_L = a_tilde[L]
-#             inv = pinv(XK_L.T @ XK_L)
-#             g_indiv[L] = inv @ (XK_L.T @ a_K_eff - a_tilde_L * SL)
-#             h_indiv[L] = inv @ (XK_L.T @ b_K_eff)
-#         z_hi = min(right, z_end)
-#         if z_hi > z_lo:
-#             path.append((z_lo, z_hi, g_indiv, h_indiv))
-#         z_lo = z_hi
-#         z = right + 1e-5
-#     return path
 
 
 def compute_indiv_path(XK_train, a_K_tr, b_K_tr, XK_val, a_K_val, b_K_val, rho, lambda_K, w_inactive, z_lo_sh, z_hi_sh, g_sh, h_sh, Ou):
@@ -241,8 +179,6 @@ def compute_indiv_path(XK_train, a_K_tr, b_K_tr, XK_val, a_K_val, b_K_val, rho, 
 
     a_K_eff = a_K_tr - (1 - rho) * (XK_train @ g_sh) # iota
     b_K_eff = b_K_tr - (1 - rho) * (XK_train @ h_sh) # rho
-
- 
 
     z = z_lo_sh
     z_lo = z_lo_sh
@@ -277,6 +213,9 @@ def compute_indiv_path(XK_train, a_K_tr, b_K_tr, XK_val, a_K_val, b_K_val, rho, 
 
             A, B, C = calculate_ABC(g_tilde, h_tilde, a_K_val, b_K_val, XK_val)
             path.append((z_lo, z_hi, A, B, C))
+        else:
+            z += 1e-5
+            continue
 
         
         z_lo = z_hi
@@ -284,41 +223,8 @@ def compute_indiv_path(XK_train, a_K_tr, b_K_tr, XK_val, a_K_val, b_K_val, rho, 
     return path
 
 
-# def merge_cv_paths(fold_quad_paths):
-#     M = len(fold_quad_paths)
-#     if M == 0:
-#         return []
-#     all_bp = set() # Collect all breakpoints from the quadratic paths of all folds to create a common set of breakpoints for merging.
-#     for path in fold_quad_paths:
-#         for (z_lo, z_hi, A, B, C) in path:
-#             all_bp.add(z_lo)
-#             all_bp.add(z_hi)
-#     breakpoints = sorted(all_bp)
-#     if len(breakpoints) < 2:
-#         return []
-#     avg_path = []
-    
-#     for i in range(len(breakpoints) - 1):
-#         z_lo = breakpoints[i]
-#         z_hi = breakpoints[i + 1]
-#         z_mid = (z_lo + z_hi) / 2.0 
-#         sum_A = sum_B = sum_C = 0.0
-#         for path in fold_quad_paths:
-#             for (lo, hi, A, B, C) in path:
-#                 if lo <= z_mid <= hi:
-#                     sum_A += A
-#                     sum_B += B
-#                     sum_C += C
-#                     break
-#         avg_path.append((z_lo, z_hi, sum_A / M, sum_B / M, sum_C / M))
-#     return avg_path
-
-
 def merge_cv_paths(fold_quad_paths):
     M = len(fold_quad_paths)
-    if M == 0:
-        return []
-
     # collect breakpoints
     all_bp = set()
     for path in fold_quad_paths:
@@ -362,20 +268,6 @@ def merge_cv_paths(fold_quad_paths):
 
     return avg_path
 
-# def compute_cv_region(obs_avg_path, comp_avg_path):
-#     winner_region = []
-#     for (z_lo, z_hi, A_obs, B_obs, C_obs) in obs_avg_path:
-#         z_mid = (z_lo + z_hi) / 2.0
-#         A_comp = B_comp = C_comp = 0.0
-#         for (lo2, hi2, A2, B2, C2) in comp_avg_path:
-#             if lo2 <= z_mid <= hi2:
-#                 A_comp, B_comp, C_comp = A2, B2, C2
-#                 break
-#         dA = A_obs - A_comp
-#         dB = B_obs - B_comp
-#         dC = C_obs - C_comp
-#         winner_region.extend(solve_quadratic_ineq(dA, dB, dC, z_lo, z_hi))
-#     return winner_region
 
 def compute_cv_region(obs_avg_path, comp_avg_path):
     winner_region = []
@@ -406,36 +298,6 @@ def compute_cv_region(obs_avg_path, comp_avg_path):
 
     return winner_region
 
-# def compute_cv_region(obs_avg_path, comp_avg_path):
-#     all_bp = set()
-#     for (lo, hi, *_) in obs_avg_path:
-#         all_bp.add(lo)
-#         all_bp.add(hi)
-#     for (lo, hi, *_) in comp_avg_path:
-#         all_bp.add(lo)
-#         all_bp.add(hi)
-#     breakpoints = sorted(all_bp)
-
-#     winner_region = []
-#     for i in range(len(breakpoints) - 1):
-#         z_lo = breakpoints[i]
-#         z_hi = breakpoints[i + 1]
-#         z_mid = (z_lo + z_hi) / 2.0
-#         A_obs = B_obs = C_obs = 0.0
-#         for (lo1, hi1, A1, B1, C1) in obs_avg_path:
-#             if lo1 <= z_mid <= hi1:
-#                 A_obs, B_obs, C_obs = A1, B1, C1
-#                 break
-#         A_comp = B_comp = C_comp = 0.0
-#         for (lo2, hi2, A2, B2, C2) in comp_avg_path:
-#             if lo2 <= z_mid <= hi2:
-#                 A_comp, B_comp, C_comp = A2, B2, C2
-#                 break
-#         dA = A_obs - A_comp
-#         dB = B_obs - B_comp
-#         dC = C_obs - C_comp
-#         winner_region.extend(solve_quadratic_ineq(dA, dB, dC, z_lo, z_hi))
-#     return winner_region
 
 def cv_select_lambda_sh(X_all, Y_all, Lambda, fold_splits):
     p = X_all.shape[1]
@@ -495,82 +357,11 @@ def cv_select_Phi(X_all, XK, Y_all, YK, lambda_sh_obs, Lambda_tilde, fold_splits
     return best_Phi
 
 
-# def compute_Z2(X_all, a, b, Lambda, lambda_sh_obs, fold_splits, z_min, z_max):
-#     p = X_all.shape[1]
-#     cv_error_paths = {}
-#     for lam in Lambda:
-#         w_tilde = np.zeros(p)
-#         w_tilde[1:] = lam
-#         fold_quad_paths = []
-#         for (train_idx, val_idx) in fold_splits:
-#             lasso_path = compute_sh_path(
-#                 X_all[train_idx], a[train_idx], b[train_idx], w_tilde, z_min, z_max)
-#             quad_path = []
-#             for (z_lo, z_hi, g, h, _) in lasso_path:
-#                 A, B, C = calculate_ABC(g, h, a[val_idx], b[val_idx], X_all[val_idx])
-#                 quad_path.append((z_lo, z_hi, A, B, C))
-#             fold_quad_paths.append(quad_path)
-#         cv_error_paths[lam] = merge_cv_paths(fold_quad_paths)
-#
-#     Z2 = [(z_min, z_max)]
-#     obs_path = cv_error_paths[lambda_sh_obs]
-#     for lam in Lambda:
-#         if lam == lambda_sh_obs:
-#             continue
-#         winner_region = compute_cv_region(obs_path, cv_error_paths[lam])
-#         Z2 = intersect_interval_lists(Z2, winner_region)
-#         if not Z2:
-#             break
-#     return merge_intervals(Z2, tol=1e-4)
-
-
-# def compute_Z2(X_all, a, b, Lambda, lambda_sh_obs, fold_splits, z_min, z_max, num_segments=1):
-#     p = X_all.shape[1]
-#     n_jobs = min(num_segments, os.cpu_count())
-#     seg_w = (z_max - z_min) / num_segments
-#     segments = [(z_min + i * seg_w, z_min + (i + 1) * seg_w) for i in range(num_segments)]
-
-#     cv_error_paths = {}
-#     for lam in Lambda:
-#         w_tilde = np.zeros(p)
-#         w_tilde[1:] = lam
-#         fold_quad_paths = [] 
-#         for (train_idx, val_idx) in fold_splits:
-#             results = Parallel(n_jobs=n_jobs, backend="loky")(
-#                 delayed(compute_sh_path)(
-#                     X_all[train_idx], a[train_idx], b[train_idx], w_tilde, seg[0], seg[1])
-#                 for seg in segments
-#             )
-#             lasso_path = []
-#             for seg_path in results:
-#                 lasso_path.extend(seg_path)
-#             # lasso_path = list(chain.from_iterable(results))
-            
-#             quad_path = [] # Compute the quadratic coefficients for the CV error difference between the observed lambda and the current lambda across all segments of the SH path, and store them in quad_path.
-            
-#             for (z_lo, z_hi, g, h, _) in lasso_path:
-#                 A, B, C = calculate_ABC(g, h, a[val_idx], b[val_idx], X_all[val_idx])
-#                 quad_path.append((z_lo, z_hi, A, B, C))
-#             fold_quad_paths.append(quad_path)
-#         cv_error_paths[lam] = merge_cv_paths(fold_quad_paths)
-
-#     Z2 = [(z_min, z_max)]
-#     obs_path = cv_error_paths[lambda_sh_obs]
-#     for lam in Lambda:
-#         if lam == lambda_sh_obs:
-#             continue
-#         winner_region = compute_cv_region(obs_path, cv_error_paths[lam])
-#         Z2 = intersect_interval_lists(Z2, winner_region)
-#         if not Z2:
-#             break
-#     return merge_intervals(Z2, tol=1e-4)
-
-
-def compute_Z2(X_all, a, b, Lambda, lambda_sh_obs, fold_splits, z_min, z_max, num_segments=1):
+def compute_Z2(X_all, a, b, Lambda, lambda_sh_obs, fold_splits, z_min, z_max, num_segments=30):
     p = X_all.shape[1]
     n_jobs = min(num_segments, os.cpu_count())
-    seg_w = (z_max - z_min) / num_segments
-    segments = [(z_min + i * seg_w, z_min + (i + 1) * seg_w) for i in range(num_segments)]
+    seg_w = (z_max - z_min) / n_jobs
+    segments = [(z_min + i * seg_w, z_min + (i + 1) * seg_w) for i in range(n_jobs)]
 
     cv_error_paths = {}
     for lam in Lambda:
@@ -610,127 +401,6 @@ def compute_Z2(X_all, a, b, Lambda, lambda_sh_obs, fold_splits, z_min, z_max, nu
     return merge_intervals(Z2, tol=1e-4)
 
 
-# def compute_Z3(X_all, XK, a, b, lambda_sh_obs, Lambda_tilde, Phi_obs, fold_splits_K, z_min, z_max):
-#     n = X_all.shape[0]
-#     nK = XK.shape[0]
-#     n_source = n - nK
-#     p = X_all.shape[1]
-
-#     a_K = a[n_source:]
-#     b_K = b[n_source:]
-
-#     w_tilde = np.zeros(p)
-#     w_tilde[1:] = lambda_sh_obs
-#     sh_path = compute_sh_path(X_all, a, b, w_tilde, z_min, z_max)
-
-#     cv_error_paths = {}
-#     for Phi in Lambda_tilde:
-#         rho, lambda_K = Phi
-#         w_inactive = (lambda_K / rho) if rho != 0.0 else 1e15
-#         fold_quad_paths = []
-#         for (train_K_idx, val_K_idx) in fold_splits_K:
-#             XK_train = XK[train_K_idx]
-#             XK_val = XK[val_K_idx]
-#             a_K_tr = a_K[train_K_idx]
-#             b_K_tr = b_K[train_K_idx]
-#             a_K_va = a_K[val_K_idx]
-#             b_K_va = b_K[val_K_idx]
-
-#             quad_path = []
-#             for (z_lo_sh, z_hi_sh, g_sh, h_sh, Ou) in sh_path:
-#                 a_tilde = np.full(p, w_inactive)
-#                 if len(Ou) > 0:
-#                     a_tilde[Ou] = lambda_K
-#                 a_tilde[0] = 0.0
-
-#                 a_K_eff = a_K_tr - (1 - rho) * (XK_train @ g_sh)
-#                 b_K_eff = b_K_tr - (1 - rho) * (XK_train @ h_sh)
-
-#                 indiv_path = compute_indiv_path(
-#                     XK_train, a_K_eff, b_K_eff, a_tilde, z_lo_sh, z_hi_sh)
-
-#                 for (z_lo_indiv, z_hi_indiv, g_indiv, h_indiv) in indiv_path:
-#                     g_tilde = (1 - rho) * g_sh + g_indiv
-#                     h_tilde = (1 - rho) * h_sh + h_indiv
-#                     A, B, C = calculate_ABC(g_tilde, h_tilde, a_K_va, b_K_va, XK_val)
-#                     quad_path.append((z_lo_indiv, z_hi_indiv, A, B, C))
-
-#             fold_quad_paths.append(quad_path)
-#         cv_error_paths[Phi] = merge_cv_paths(fold_quad_paths)
-
-#     Z3 = [(z_min, z_max)]
-#     obs_path = cv_error_paths[Phi_obs]
-#     for Phi in Lambda_tilde:
-#         if Phi == Phi_obs:
-#             continue
-#         winner_region = compute_cv_region(obs_path, cv_error_paths[Phi])
-#         Z3 = intersect_interval_lists(Z3, winner_region)
-#         if not Z3:
-#             break
-    # return merge_intervals(Z3, tol=1e-4)
-
-
-
-
-# def compute_Z3(X_all, XK, a, b, lambda_sh_obs, Lambda_tilde, Phi_obs, fold_splits_K, z_min, z_max, num_segments=1):
-#     n = X_all.shape[0]
-#     nK = XK.shape[0]
-#     n_source = n - nK
-#     p = X_all.shape[1]
-
-#     a_K = a[n_source:]
-#     b_K = b[n_source:]
-
-#     n_jobs = min(num_segments, os.cpu_count())
-#     seg_w = (z_max - z_min) / num_segments
-#     segments = [(z_min + i * seg_w, z_min + (i + 1) * seg_w) for i in range(num_segments)]
-
-#     w_tilde = np.zeros(p)
-#     w_tilde[1:] = lambda_sh_obs
-#     sh_results = Parallel(n_jobs=n_jobs, backend="loky")(
-#         delayed(compute_sh_obs_path)(X_all, a, b, w_tilde, seg[0], seg[1])
-#         for seg in segments
-#     )
-#     sh_path = [t for res in sh_results for t in res]
-
-#     cv_error_paths = {}
-#     for Phi in Lambda_tilde:
-#         rho, lambda_K = Phi
-#         w_inactive = (lambda_K / rho) if rho != 0.0 else 1e15
-#         fold_quad_paths = []
-#         for (train_K_idx, val_K_idx) in fold_splits_K:
-#             XK_train = XK[train_K_idx]
-#             XK_val = XK[val_K_idx]
-#             a_K_tr = a_K[train_K_idx]
-#             b_K_tr = b_K[train_K_idx]
-#             a_K_val = a_K[val_K_idx]
-#             b_K_val = b_K[val_K_idx]
-
-#             results = Parallel(n_jobs=n_jobs, backend="loky")(
-#                 delayed(compute_indiv_path)(XK_train, a_K_tr, b_K_tr, XK_val, a_K_val, b_K_val, rho, lambda_K, w_inactive, z_lo_sh, z_hi_sh, g_sh, h_sh, Ou)
-#                 for (z_lo_sh, z_hi_sh, g_sh, h_sh, Ou) in sh_path
-#             )
-
-#             quad_path = [t for res in results for t in res]
-#             quad_path.sort(key=lambda x: x[0])
-
-#             fold_quad_paths.append(quad_path)
-#         cv_error_paths[Phi] = merge_cv_paths(fold_quad_paths)
-
-#     Z3 = [(z_min, z_max)]
-#     obs_path = cv_error_paths[Phi_obs]
-#     for Phi in Lambda_tilde:
-#         if Phi == Phi_obs:
-#             continue
-#         winner_region = compute_cv_region(obs_path, cv_error_paths[Phi])
-
-
-#         Z3 = intersect_interval_lists(Z3, winner_region)
-#         if not Z3:
-#             break
-#     return merge_intervals(Z3, tol=1e-4)
-
-
 def process_single_phi_fold(Phi, train_K_idx, val_K_idx, XK, a_K, b_K, sh_path):
     rho, lambda_K = Phi
     w_inactive = (lambda_K / rho) if rho != 0.0 else 1e15
@@ -757,7 +427,7 @@ def process_single_phi_fold(Phi, train_K_idx, val_K_idx, XK, a_K, b_K, sh_path):
 
 
 
-def compute_Z3(X_all, XK, a, b, lambda_sh_obs, Lambda_tilde, Phi_obs, fold_splits_K, z_min, z_max, num_segments=1):
+def compute_Z3(X_all, XK, a, b, lambda_sh_obs, Lambda_tilde, Phi_obs, fold_splits_K, z_min, z_max, num_segments=30):
     n = X_all.shape[0]
     nK = XK.shape[0]
     n_source = n - nK
@@ -766,9 +436,9 @@ def compute_Z3(X_all, XK, a, b, lambda_sh_obs, Lambda_tilde, Phi_obs, fold_split
     a_K = a[n_source:]
     b_K = b[n_source:]
 
-    n_jobs = min(26, os.cpu_count()) 
-    seg_w = (z_max - z_min) / num_segments
-    segments = [(z_min + i * seg_w, z_min + (i + 1) * seg_w) for i in range(num_segments)]
+    n_jobs = min(num_segments, os.cpu_count())
+    seg_w = (z_max - z_min) / n_jobs
+    segments = [(z_min + i * seg_w, z_min + (i + 1) * seg_w) for i in range(n_jobs)]
     w_tilde = np.zeros(p)
     w_tilde[1:] = lambda_sh_obs
 
@@ -777,7 +447,7 @@ def compute_Z3(X_all, XK, a, b, lambda_sh_obs, Lambda_tilde, Phi_obs, fold_split
         for seg in segments
     )
     sh_path = [t for res in sh_results for t in res]
-    sh_path.sort(key=lambda x: x[0])  # Sắp xếp lại cho chắc chắn
+    sh_path.sort(key=lambda x: x[0])  
 
     tasks = []
     for Phi in Lambda_tilde:

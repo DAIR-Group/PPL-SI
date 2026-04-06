@@ -169,7 +169,6 @@ def PretrainedLasso(X, Y, XK, YK, w_tilde, lambda_K, rho, n, nK):
     else:
         w_ = lambda_K / rho
 
-
     a_tilde = np.where(beta_sh == 0.0, w_, lambda_K).astype(float)
     a_tilde[0] = 0.0 
 
@@ -193,7 +192,6 @@ def Pretrain_Lasso(X, Y, lambda_sh):
 
 # Pretrained Lasso
 def Finetune_Lasso(XK, YK, beta_sh, a_tilde, rho, nK):
-
     residual = YK - (1 - rho) * (XK @ beta_sh)
     model_indiv = WeightedLasso(alpha=1/ nK, fit_intercept=False, tol=1e-13, weights=a_tilde.ravel())
     model_indiv.fit(XK, residual)
