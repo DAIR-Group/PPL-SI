@@ -70,8 +70,9 @@ PPL-SI/
 │   ├── ex1_p_value_PPL.ipynb   # Inference for Standard Pretrained Lasso
 │   ├── ex2_p_value_PPL_parameter_only.ipynb # Inference for Parameter-Only transfer
 │   ├── ex3_p_value_DTF.ipynb   # Inference for D-TransFusion
-│   └── ex4_pivot.ipynb         # Validation of p-value uniformity (Pivot check)
-│
+│   ├── ex4_pivot.ipynb         # Validation of p-value uniformity (Pivot check)
+│   └── ex5_p_value_PPL_CV.ipynb # CV-Aware Pretrained Lasso
+|   
 ├── figures/                    # Images for README/Documentation
 └── README.md
 ```
